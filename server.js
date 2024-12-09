@@ -43,9 +43,19 @@ app.get('/api/local', async (req, res) => {
   }
 });
 
-app.post('/api/search', async (req, res) => {
+app.post('/api/keyword-search', async (req, res) => {
   try {
-    const { query } = req.body;
+    const { keywords } = req.body;
+
+    // Mapea las palabras clave a una consulta SPARQL
+    const query = `
+      SELECT ?subject ?predicate ?object WHERE {
+        ?subject ?predicate ?object.
+        FILTER(CONTAINS(LCASE(STR(?object)), "${keywords.toLowerCase()}") ||
+               CONTAINS(LCASE(STR(?subject)), "${keywords.toLowerCase()}") ||
+               CONTAINS(LCASE(STR(?predicate)), "${keywords.toLowerCase()}"))
+      } LIMIT 20
+    `;
 
     const response = await fetch(localEndpoint, {
       method: 'POST',
@@ -62,6 +72,7 @@ app.post('/api/search', async (req, res) => {
 
     const data = await response.json();
 
+    // Formatea los resultados
     const results = data.results.bindings.map((binding) => ({
       subject: binding.subject?.value,
       predicate: binding.predicate?.value,
@@ -70,7 +81,7 @@ app.post('/api/search', async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error('Error executing SPARQL query:', error.message, error.stack);
+    console.error('Error executing SPARQL query:', error.message);
     res.status(500).json({ message: 'Error executing query', error: error.message });
   }
 });
